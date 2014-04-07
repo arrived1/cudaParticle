@@ -5,6 +5,10 @@
 #include <vector>
 #include <algorithm>
 
+#include <cuda_runtime.h>
+#include <cufft.h>
+#include <helper_math.h>
+
 #include "types.h"
 #include "randGenerator.h"
 
@@ -77,7 +81,7 @@ public:
             }
             else {
                 float3 col(colorGenerator.rand(), colorGenerator.rand(), colorGenerator.rand());
-                std::cout << i << ") color: " << col << std::endl;
+                //std::cout << i << ") color: " << col << std::endl;
                 color.push_back(col);
             }
         }
@@ -95,7 +99,7 @@ public:
             nextPos.push_back(T());
             force.push_back(T());
 
-            float3 col(colorGenerator.rand(), colorGenerator.rand(), colorGenerator.rand());
+            float3 col = make_float3(colorGenerator.rand(), colorGenerator.rand(), colorGenerator.rand());
             //std::cout << i << ") color: " << col << std::endl;
             color.push_back(col);
         }
@@ -121,8 +125,7 @@ public:
 
 
 	void prepareMove(unsigned i, float dt) {
-        T acceleration;
-        acceleration  = force[i] * (1 / mass);
+        T acceleration force[i] / mass;
         //std::cout << i << ") prepareMove - acceleration: " << acceleration  << " [" << force << " * " << 1/mass << "]"<< std::endl;
 
 		//prepareMoveVerlet(i, acceleration, dt);

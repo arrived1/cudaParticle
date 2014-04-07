@@ -9,6 +9,11 @@
 #include <cmath>
 #include <string>
 
+#include <cuda_runtime.h>
+#include <cuda_gl_interop.h>
+#include <cufft.h>
+#include <cuda.h>
+
 
 #include "particleSystem.h"
 #include "emiter.h"
@@ -25,7 +30,8 @@ const float radius = 0.02f;
 
 //unsigned step = 0;
 ParticleSystem<float2> pSystem(40);
-Emiter<ParticleSystem<float2>, float2> emiter(pSystem, float2(-5, 0));
+float2 pos = make_float2(-5.f, 0.f);
+Emiter<ParticleSystem<float2>, float2> emiter(pSystem, pos);
 
 bool collision(float2 p1, float2 p2);
 void checkState(unsigned i);

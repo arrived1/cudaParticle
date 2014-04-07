@@ -2,7 +2,7 @@
 
 #include <vector>
 
-struct float2
+/*struct float2
 {
     float2(float x_ = 0, float y_ = 0)
     : x(x_), y(y_)
@@ -85,7 +85,7 @@ std::ostream & operator<<(std::ostream &out, const float3 &f)
 
 typedef std::vector<float3> vector3;
 typedef std::vector<float4> vector4;
-
+*/
 enum ParticleState
 {
     inEmiter = 0,

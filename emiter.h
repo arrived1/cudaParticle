@@ -30,9 +30,9 @@ public:
             pSystem.setParticlePos(i, position);
             pSystem.setPrevParticlePos(i, position);
 
-            float2 vel(velGeneratorX->rand(), velGeneratorY->rand());
+            float2 vel = make_float2(velGeneratorX->rand(), velGeneratorY->rand());
             pSystem.setParticleVel(i, vel);
-            pSystem.setParticleForce(i, float2(forceGenerator->rand(), 0.f));
+            pSystem.setParticleForce(i, make_float2(forceGenerator->rand(), 0.f));
 
         }
 
