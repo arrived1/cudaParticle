@@ -80,7 +80,7 @@ public:
                 color.push_back(float3(0.5f, 0.f, 1.f)); //purpure
             }
             else {
-                float3 col(colorGenerator.rand(), colorGenerator.rand(), colorGenerator.rand());
+                float3 col(colorGenerator.randValue(), colorGenerator.randValue(), colorGenerator.randValue());
                 //std::cout << i << ") color: " << col << std::endl;
                 color.push_back(col);
             }
@@ -99,7 +99,7 @@ public:
             nextPos.push_back(T());
             force.push_back(T());
 
-            float3 col = make_float3(colorGenerator.rand(), colorGenerator.rand(), colorGenerator.rand());
+            float3 col = make_float3(colorGenerator.randValue(), colorGenerator.randValue(), colorGenerator.randValue());
             //std::cout << i << ") color: " << col << std::endl;
             color.push_back(col);
         }
@@ -125,7 +125,7 @@ public:
 
 
 	void prepareMove(unsigned i, float dt) {
-        T acceleration force[i] / mass;
+        T acceleration = force[i] / mass;
         //std::cout << i << ") prepareMove - acceleration: " << acceleration  << " [" << force << " * " << 1/mass << "]"<< std::endl;
 
 		//prepareMoveVerlet(i, acceleration, dt);

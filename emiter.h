@@ -17,7 +17,7 @@ public:
     {
         int wingRadius = 3;
         velGeneratorX = new RandGenerator(100, 0);
-        velGeneratorY = new RandGenerator(3, -3);
+        velGeneratorY = new RandGenerator(3, 0); //3, -3
         forceGenerator = new RandGenerator(100, 0);
 
         std::cout << "Emiter ok" << std::endl;
@@ -30,9 +30,9 @@ public:
             pSystem.setParticlePos(i, position);
             pSystem.setPrevParticlePos(i, position);
 
-            float2 vel = make_float2(velGeneratorX->rand(), velGeneratorY->rand());
+            float2 vel = make_float2(velGeneratorX->randValue(), velGeneratorY->randValue());
             pSystem.setParticleVel(i, vel);
-            pSystem.setParticleForce(i, make_float2(forceGenerator->rand(), 0.f));
+            pSystem.setParticleForce(i, make_float2(forceGenerator->randValue(), 0.f));
 
         }
 
