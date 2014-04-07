@@ -19,8 +19,6 @@ public:
         velGeneratorX = new RandGenerator(100, 0);
         velGeneratorY = new RandGenerator(3, 0); //3, -3
         forceGenerator = new RandGenerator(100, 0);
-
-        std::cout << "Emiter ok" << std::endl;
     }
 
     void emit(unsigned i) {
@@ -33,9 +31,7 @@ public:
             float2 vel = make_float2(velGeneratorX->randValue(), velGeneratorY->randValue());
             pSystem.setParticleVel(i, vel);
             pSystem.setParticleForce(i, make_float2(forceGenerator->randValue(), 0.f));
-
         }
-
     }
 
     void backToEmiter(unsigned i) {
