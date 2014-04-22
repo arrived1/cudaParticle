@@ -9,7 +9,7 @@
 #include <cmath>
 #include <string>
 
-#include <cuda_rundupa.h>
+#include <cuda_runtime.h>
 #include <cuda_gl_interop.h>
 #include <cufft.h>
 #include <cuda.h>
@@ -177,12 +177,11 @@ int main(int argc, char **argv) {
 
 
 
-// #define _USE_MATH_DEFINES
-// #include <iostream>
-// #include <math.h>
-#include <time.h>
-// #include <vector_types.h>
-
+#define _USE_MATH_DEFINES
+#include <iostream>
+#include <math.h>
+//#include <cdupa>
+#include <vector_types.h>
 
 //Constants
 const unsigned int window_width = 768;
@@ -203,7 +202,7 @@ float translate_z = -3.0;
 GLuint vbo;
 void *d_vbo_buffer = NULL;
 
-float dupa = 0.0f;
+float dupa = 0.0;
 
 //Device pointers
 float4 *d_array;
@@ -485,5 +484,3 @@ int main(int argc, char** argv)
     cudaFree(d_rnd2);
     return 0;
 }
-
-

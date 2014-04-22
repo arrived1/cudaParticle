@@ -146,7 +146,7 @@ build: simulation
 #bodysystemcuda.o: bodysystemcuda.cu
 #	$(EXEC) $(NVCC) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -c $<
 
-simulation.o: simulation.cpp
+simulation.o: simulation_new.cu
 	$(EXEC) $(NVCC) $(INCLUDES) $(ALL_CCFLAGS) $(GENCODE_FLAGS) -o $@ -c $<
 
 #render_particles.o: render_particles.cpp
