@@ -18,7 +18,7 @@
 
 
 //Constants
-const unsigned int window_width = 768;
+const unsigned int window_width = 1024;
 const unsigned int window_height = 768;
 
 const unsigned int mesh_width = 1024;
@@ -39,8 +39,7 @@ void *d_vbo_buffer = NULL;
 float dt = 0.0f;
 
 //Device pointers
-float4 *d_vel;
-float *d_rnd1, *d_rnd2;
+float4 *d_vel, *d_initPos;
 
 //FPS
 int fpsCount = 0;      // FPS count for averaging
@@ -63,26 +62,24 @@ union Color
     uchar4 components;
 };
 
+__device__ unsigned idx(unsigned x, unsigned y)
+{
+    return x * 1024 + y;
+}
+
 __global__ void initialize_kernel(float4* pos, unsigned int width, unsigned int height, float dt, 
-                                  float4* vel, float* rnd1, float* rnd2)
+                                  float4* vel, float4* initPos)
 {
     unsigned int x = blockIdx.x*blockDim.x + threadIdx.x;
     unsigned int y = blockIdx.y*blockDim.y + threadIdx.y;
-
-    //Calculate the initial coordinates
-    float u = x / (float) width + rnd1[y*width+x];
-    float v = y / (float) height + rnd2[y*width+x];
-
-    //Calculate a simple sine wave pattern
-    float freq = 2.0f;
-    float w = sinf(u*freq + dt) * cosf(v*freq + dt) * 0.2f;
 
     //Set the initial color
     Color temp;
     temp.components = make_uchar4(0,255,255,1);
 
     //Set initial position, color and velocity
-    pos[y*width+x] = make_float4(u, w, v, temp.c);
+    unsigned i = idx(x, y);
+    pos[i] = make_float4(initPos[i].x, 0.f, initPos[i].y, temp.c);
     vel[y*width+x] = make_float4(0.0, 0.0, 0.0, 1.0f);
 }
 
@@ -157,10 +154,10 @@ void particles(GLuint vbo)
     //Map OpenGL buffer object for writing from CUDA
     float4 *d_pos;
     cudaGLMapBufferObject((void**)&d_pos, vbo);
-
+    
     //Run the particles kernel
-    dim3 block(8, 8, 1);
-    dim3 grid(mesh_width / block.x, mesh_height / block.y, 1);
+    dim3 block(8, 8, 1); // 8 x 8
+    dim3 grid(mesh_width / block.x, mesh_height / block.y, 1); //128 x 128
     particles_kernel<<< grid, block>>>(d_pos, mesh_width, mesh_height, dt, mouse_x, mouse_y, d_vel, buttons);
 
     //Unmap buffer object
@@ -176,7 +173,7 @@ void initialize(GLuint vbo)
     //Run the initialization kernel
     dim3 block(8, 8, 1);
     dim3 grid(mesh_width / block.x, mesh_height / block.y, 1);
-    initialize_kernel<<< grid, block>>>(d_pos, mesh_width, mesh_height, dt, d_vel, d_rnd1, d_rnd2);
+    initialize_kernel<<< grid, block>>>(d_pos, mesh_width, mesh_height, dt, d_vel, d_initPos);
 
     //Unmap buffer object
     cudaGLUnmapBufferObject(vbo);
@@ -215,12 +212,23 @@ int main(int argc, char** argv)
     for (int i = 0; i < mesh_height * mesh_width; ++i)
         rnd2[i] = (rand() % 100 - 100) / 2000.0f;
 
+    int counter = 0;
+    float dist = 0.001f;
+    float x_dim = -4.f;
+    float y_dim = 0.f;
+    float4 * h_initPos = (float4*)malloc(mesh_width * mesh_height * sizeof(float4));  
+    for (float i = x_dim; i < x_dim + mesh_height * dist; i += dist)
+        for (float j = y_dim; j < y_dim + mesh_width * dist; j += dist)
+        {
+            h_initPos[counter++] = make_float4(float(i), float(j), 0.f, 0.f);
+            //std::cout << counter << " " << i << " " << j << std::endl;
+        }
+
     //CUDA allocation and copying
     cudaMalloc(&d_vel, mesh_width * mesh_height * sizeof(float4));
-    cudaMalloc(&d_rnd1, mesh_width * mesh_height * sizeof(float));
-    cudaMemcpy(d_rnd1, rnd1, mesh_height * mesh_width * sizeof(float), cudaMemcpyHostToDevice);
-    cudaMalloc(&d_rnd2, mesh_width * mesh_height * sizeof(float));
-    cudaMemcpy(d_rnd2, rnd2, mesh_height * mesh_width * sizeof(float), cudaMemcpyHostToDevice);
+
+    cudaMalloc(&d_initPos, mesh_width * mesh_height * sizeof(float4));
+    cudaMemcpy(d_initPos, h_initPos, mesh_height * mesh_width * sizeof(float4), cudaMemcpyHostToDevice);
 
     initialize(vbo);
 
@@ -228,8 +236,8 @@ int main(int argc, char** argv)
 
     //Free CUDA variables
     cudaFree(d_vel);
-    cudaFree(d_rnd1);
-    cudaFree(d_rnd2);
+    cudaFree(d_initPos);
+
     return 0;
 }
 
@@ -328,7 +336,7 @@ void initGL(int argc, char **argv)
     //Projection
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
-    gluPerspective(60.0, (GLfloat)window_width / (GLfloat) window_height, 0.1, 10.0);
+    gluPerspective(90.0, (GLfloat)window_width / (GLfloat) window_height, 0.1, 10.0);
 }
 
 void keyboard(unsigned char key, int, int)
