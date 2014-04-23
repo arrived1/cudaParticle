@@ -15,7 +15,7 @@
 #include <cufft.h>
 #include <cuda.h>
 #include <helper_functions.h>
-
+#include <math_functions.h>
 
 //Constants
 const unsigned int window_width = 1024;
@@ -23,9 +23,6 @@ const unsigned int window_height = 768;
 
 const unsigned int mesh_width = 1024;
 const unsigned int mesh_height = 1024;
-
-float rnd1[mesh_width*mesh_height];
-float rnd2[mesh_width*mesh_height];
 
 //Mouse controls
 int mouse_x, mouse_y;
@@ -36,7 +33,7 @@ float translate_z = -3.0;
 GLuint vbo;
 void *d_vbo_buffer = NULL;
 
-float dt = 0.0f;
+long long unsigned step = 0;
 
 //Device pointers
 float4 *d_vel, *d_initPos;
@@ -62,91 +59,85 @@ union Color
     uchar4 components;
 };
 
+__device__ float4 nextPos[1024*1024], nextVel[1024*1024];
+
 __device__ unsigned idx(unsigned x, unsigned y)
 {
     return x * 1024 + y;
 }
 
-__global__ void initialize_kernel(float4* pos, unsigned int width, unsigned int height, float dt, 
-                                  float4* vel, float4* initPos)
+__global__ void initialize_kernel(float4* pos, unsigned int width, unsigned int height, float4* vel, float4* initPos)
 {
     unsigned int x = blockIdx.x*blockDim.x + threadIdx.x;
     unsigned int y = blockIdx.y*blockDim.y + threadIdx.y;
 
     //Set the initial color
-    Color temp;
-    temp.components = make_uchar4(0,255,255,1);
+    Color tmp;
+    tmp.components = make_uchar4(0,255,255,1);
 
     //Set initial position, color and velocity
     unsigned i = idx(x, y);
-    pos[i] = make_float4(initPos[i].x, 0.f, initPos[i].y, temp.c);
-    vel[y*width+x] = make_float4(0.0, 0.0, 0.0, 1.0f);
+    pos[i] = make_float4(initPos[i].x, 0.f, initPos[i].y, tmp.c);
+    vel[i] = make_float4(15.0, 0.0, 0.0, 1.0f);
 }
 
-__global__ void particles_kernel(float4* pos, unsigned int width, unsigned int height, float dt, 
-                                float X, float Y, float4* vel, int buttons)
+__global__ void particles_kernel(float4* pos, unsigned int width, unsigned int height, float4* vel)
 {
-    const float speed = 0.0005f;
-    const float threshold = 0.1f;
     unsigned int x = blockIdx.x*blockDim.x + threadIdx.x;
     unsigned int y = blockIdx.y*blockDim.y + threadIdx.y;
+    unsigned i = idx(x, y);
 
-    float u = x / (float) width;
-    float v = y / (float) height;
+    float dt = 0.0005f;
 
-    float xX = (X - width/2 + 128)/(float)width*4.5f;
-    float yY = (Y - height/2 + 128)/(float)height*4.5f;
-    float dx = -pos[y*width+x].x + xX;
-    float dz = -pos[y*width+x].z + yY;
-    float length = sqrtf(dx*dx+dz*dz);
-    if (buttons==10)
+    // movement
+    pos[i].x = pos[i].x + vel[i].x * dt;
+    pos[i].y = pos[i].y + vel[i].y * dt;
+    pos[i].z = pos[i].z + vel[i].z * dt;
+
+
+    // collision
+    Color tmp;
+    tmp.components = make_uchar4(0,1,0,1);
+
+    float radius = 0.0002f;
+    float radius_square = radius * radius;
+    unsigned max = 1024 * 1024;
+    
+    for(unsigned j = 0; j < max; j++)
     {
-        vel[y*width+x].x=0;
-        vel[y*width+x].z=0;
-        dx = -pos[y*width+x].x + u;
-        dz = -pos[y*width+x].z + v;
-        length = sqrtf(dx*dx+dz*dz);
-        pos[y*width+x].x+=dx/length*speed*10;
-        pos[y*width+x].z+=dz/length*speed*10;
-    }
-    else if (!(buttons & 4) && !(buttons & 6))
-    {
-        float2 normalized = make_float2(dx/length*speed, dz/length*speed);
-        vel[y*width+x].x+=normalized.x;
-        vel[y*width+x].z+=normalized.y;
-        dx = vel[y*width+x].x;
-        dz = vel[y*width+x].z;
-        float velocity = sqrtf(dx*dx+dz*dz);
-        if (velocity>threshold)
+        if (i == j)
+            continue;
+
+        float4 *p1 = &pos[i];
+        float4 *p2 = &pos[j];
+        
+        float dist_square = (p2->x - p1->x) * (p2->x - p1->x) +
+                            (p2->y - p1->y) * (p2->y - p1->y);
+
+        // detect collision
+        if(dist_square <= radius_square)
         {
-            vel[y*width+x].x=dx/velocity*threshold;
-            vel[y*width+x].z=dz/velocity*threshold;
+            nextPos[i].x = i;
+            // update pos
+            //nextPos[i] = *p1;
+            //nextPos[i].w = tmp.c;
+
+            // update vel
+            // nextVel[i].x = vel[i].z * -1.f;
+            // nextVel[i].y = vel[i].z * -1.f;
+            // nextVel[i].z = vel[i].z * -1.f;
         }
-        Color temp;
-        temp.components = make_uchar4(128/length,(int)(255/(velocity*51)),255,10);
-        if (pos[y*width+x].x<-5.0f && vel[y*width+x].x<0.0)
-            vel[y*width+x].x=-vel[y*width+x].x;
-        if (pos[y*width+x].x>5.0f && vel[y*width+x].x>0.0)
-            vel[y*width+x].x=-vel[y*width+x].x;
-        pos[y*width+x].x+=vel[y*width+x].x;
-        pos[y*width+x].z+=vel[y*width+x].z;
-        pos[y*width+x].w = temp.c;
     }
-    else if (!(buttons & 4))
-    {
-        vel[y*width+x].x=0;
-        vel[y*width+x].z=0;
-        pos[y*width+x].x+=dx/length*speed*10;
-        pos[y*width+x].z+=dz/length*speed*10;
-        Color temp;
-        temp.components = make_uchar4(255/length,255/length, 255, 10);
-        pos[y*width+x].w = temp.c;
-    }
+}
 
-    float freq = 2.0f;
-    float w = sinf(u*freq + dt) * cosf(v*freq + dt) * 0.2f;
+__global__ void particle_kernel_update(float4* pos, float4* vel)
+{
+    unsigned int x = blockIdx.x*blockDim.x + threadIdx.x;
+    unsigned int y = blockIdx.y*blockDim.y + threadIdx.y;
+    unsigned i = idx(x, y);
 
-    pos[y*width+x].y=w;
+    pos[i] = nextPos[i];
+    vel[i] = nextVel[i];
 }
 
 void particles(GLuint vbo)
@@ -158,8 +149,8 @@ void particles(GLuint vbo)
     //Run the particles kernel
     dim3 block(8, 8, 1); // 8 x 8
     dim3 grid(mesh_width / block.x, mesh_height / block.y, 1); //128 x 128
-    particles_kernel<<< grid, block>>>(d_pos, mesh_width, mesh_height, dt, mouse_x, mouse_y, d_vel, buttons);
-
+    particles_kernel<<< grid, block>>>(d_pos, mesh_width, mesh_height, d_vel);
+    //particle_kernel_update<<< grid, block>>>(d_pos);
     //Unmap buffer object
     cudaGLUnmapBufferObject(vbo);
 }
@@ -173,7 +164,7 @@ void initialize(GLuint vbo)
     //Run the initialization kernel
     dim3 block(8, 8, 1);
     dim3 grid(mesh_width / block.x, mesh_height / block.y, 1);
-    initialize_kernel<<< grid, block>>>(d_pos, mesh_width, mesh_height, dt, d_vel, d_initPos);
+    initialize_kernel<<< grid, block>>>(d_pos, mesh_width, mesh_height, d_vel, d_initPos);
 
     //Unmap buffer object
     cudaGLUnmapBufferObject(vbo);
@@ -206,23 +197,13 @@ int main(int argc, char** argv)
     //Create VBO
     createVBO(&vbo);
 
-    //Initialize random arrays
-    for (int i = 0; i < mesh_height * mesh_width; ++i)
-        rnd1[i] = (rand() % 100 - 100) / 2000.0f;
-    for (int i = 0; i < mesh_height * mesh_width; ++i)
-        rnd2[i] = (rand() % 100 - 100) / 2000.0f;
-
     int counter = 0;
     float dist = 0.001f;
     float x_dim = -4.f;
-    float y_dim = 0.f;
     float4 * h_initPos = (float4*)malloc(mesh_width * mesh_height * sizeof(float4));  
     for (float i = x_dim; i < x_dim + mesh_height * dist; i += dist)
-        for (float j = y_dim; j < y_dim + mesh_width * dist; j += dist)
-        {
+        for (float j = 0.f; j < mesh_width * dist; j += dist)
             h_initPos[counter++] = make_float4(float(i), float(j), 0.f, 0.f);
-            //std::cout << counter << " " << i << " " << j << std::endl;
-        }
 
     //CUDA allocation and copying
     cudaMalloc(&d_vel, mesh_width * mesh_height * sizeof(float4));
@@ -297,7 +278,10 @@ void display(void)
     glutSwapBuffers();
     glutPostRedisplay();
 
-    dt += 0.01;
+    std::cout << step++ << std::endl;
+
+    if(step > 10)
+        exit(69);
 
     sdkStopTimer(&timer);
     computeFPS();
